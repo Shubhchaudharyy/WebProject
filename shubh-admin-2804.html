@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel – ShopVerse</title>
+  <script src="paths.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="admin-page">
+
+<div id="site-header"></div>
+
+<main class="admin-layout">
+  <aside class="admin-sidebar">
+    <h2>Admin Panel</h2>
+    <nav>
+      <a href="#dashboard" class="active">Dashboard</a>
+      <a href="index.html">View Store</a>
+      <button type="button" onclick="logoutUser()">Logout</button>
+    </nav>
+  </aside>
+
+  <section class="admin-content" id="dashboard">
+    <h1>Dashboard</h1>
+    <div class="stat-grid" id="stats"></div>
+
+    <h2>Recent Orders</h2>
+    <div class="admin-table-wrap">
+      <table class="admin-table" id="orders-table">
+        <thead>
+          <tr><th>Order ID</th><th>Customer</th><th>Items</th><th>Total</th><th>Date</th></tr>
+        </thead>
+        <tbody id="orders-body"></tbody>
+      </table>
+    </div>
+
+    <h2>Registered Users</h2>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th></tr></thead>
+        <tbody id="users-body"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script src="products.js"></script>
+<script src="auth.js"></script>
+<script src="script.js"></script>
+<script src="ui.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (!requireAdmin()) return;
+
+  const orders = getOrders();
+  const users = getUsers();
+  const revenue = orders.reduce((s, o) => s + (o.total || 0), 0);
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stat-card"><span>Total Orders</span><strong>${orders.length}</strong></div>
+    <div class="stat-card"><span>Revenue (demo)</span><strong>₹${revenue.toLocaleString("en-IN")}</strong></div>
+    <div class="stat-card"><span>Products</span><strong>${SHOP_PRODUCTS.length}</strong></div>
+    <div class="stat-card"><span>Users</span><strong>${users.length}</strong></div>`;
+
+  document.getElementById("orders-body").innerHTML =
+    orders.length === 0
+      ? '<tr><td colspan="5">No orders yet</td></tr>'
+      : orders
+          .slice(0, 20)
+          .map(
+            (o) => `
+      <tr>
+        <td>${o.id}</td>
+        <td>${o.userName}<br><small>${o.userEmail}</small></td>
+        <td>${o.items.reduce((s, i) => s + i.qty, 0)}</td>
+        <td>₹${o.total.toLocaleString("en-IN")}</td>
+        <td>${new Date(o.date).toLocaleDateString("en-IN")}</td>
+      </tr>`
+          )
+          .join("");
+
+  document.getElementById("users-body").innerHTML = users
+    .map((u) => `<tr><td>${u.name}</td><td>${u.email}</td><td>${u.role}</td></tr>`)
+    .join("");
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,281 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login – ShopVerse</title>
+
+  <script src="paths.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="auth-page" data-auth="login">
+
+<div id="site-header"></div>
+
+<main class="auth-container">
+  <div class="auth-card">
+
+    <!-- Tabs -->
+    <div class="auth-tabs">
+      <button
+        type="button"
+        class="auth-tab active"
+        data-tab="user">
+        Customer
+      </button>
+
+      <button
+        type="button"
+        class="auth-tab"
+        data-tab="admin">
+        Admin
+      </button>
+    </div>
+
+    <!-- Heading -->
+    <h1 id="auth-title">Login to ShopVerse</h1>
+
+    <p class="auth-sub">
+      Shop deals, track orders & checkout faster
+    </p>
+
+    <!-- Error -->
+    <div id="auth-error" class="auth-error" hidden></div>
+
+    <!-- Login Form -->
+    <form id="login-form" class="auth-form">
+
+      <label>Email</label>
+      <input
+        type="email"
+        id="login-email"
+        required
+        placeholder="user@shopverse.com"
+        autocomplete="username">
+
+      <label>Password</label>
+      <input
+        type="password"
+        id="login-password"
+        required
+        placeholder="••••••••"
+        autocomplete="current-password">
+
+      <button type="submit" class="btn-primary full">
+        Sign In
+      </button>
+
+    </form>
+
+    <hr class="auth-divider">
+
+    <!-- Register Switch -->
+    <p class="auth-switch">
+      New customer?
+
+      <button type="button" id="show-register">
+        Create account
+      </button>
+    </p>
+
+    <!-- Register Form -->
+    <form id="register-form" class="auth-form" hidden>
+
+      <label>Full Name</label>
+      <input
+        type="text"
+        id="reg-name"
+        required
+        placeholder="Your name">
+
+      <label>Email</label>
+      <input
+        type="email"
+        id="reg-email"
+        required
+        placeholder="you@email.com">
+
+      <label>Password</label>
+      <input
+        type="password"
+        id="reg-password"
+        required
+        minlength="6"
+        placeholder="Min 6 characters">
+
+      <button type="submit" class="btn-primary full">
+        Register
+      </button>
+
+      <button
+        type="button"
+        class="btn-text"
+        id="back-login">
+        Back to login
+      </button>
+
+    </form>
+
+    <!-- Demo Accounts -->
+    <div class="demo-credentials">
+      <p><strong>Demo accounts</strong></p>
+
+      <p>
+        Customer: user@shopverse.com / user123
+      </p>
+    </div>
+
+  </div>
+</main>
+
+<!-- Scripts -->
+<script src="products.js"></script>
+<script src="auth.js"></script>
+<script src="script.js"></script>
+<script src="ui.js"></script>
+
+<script>
+
+  let activeRole =
+    new URLSearchParams(location.search).get("role") === "admin"
+      ? "admin"
+      : "user";
+
+  const redirect =
+    new URLSearchParams(location.search).get("redirect")
+      || "index.html";
+
+  // Change tab
+  function setTab(role) {
+
+    activeRole = role;
+
+    document
+      .querySelectorAll(".auth-tab")
+      .forEach((t) => {
+        t.classList.toggle(
+          "active",
+          t.dataset.tab === role
+        );
+      });
+
+    document.getElementById("auth-title").textContent =
+      role === "admin"
+        ? "Admin Login"
+        : "Login to ShopVerse";
+
+    document.getElementById("show-register")
+      .parentElement.style.display =
+        role === "admin"
+          ? "none"
+          : "block";
+
+    if (role === "admin") {
+      document.getElementById("register-form").hidden = true;
+      document.getElementById("login-form").hidden = false;
+    }
+  }
+
+  // Tab click
+  document.querySelectorAll(".auth-tab")
+    .forEach((btn) => {
+      btn.addEventListener("click", () => {
+        setTab(btn.dataset.tab);
+      });
+    });
+
+  // Show register
+  document.getElementById("show-register")
+    .addEventListener("click", () => {
+
+      document.getElementById("login-form").hidden = true;
+      document.getElementById("register-form").hidden = false;
+    });
+
+  // Back to login
+  document.getElementById("back-login")
+    .addEventListener("click", () => {
+
+      document.getElementById("register-form").hidden = true;
+      document.getElementById("login-form").hidden = false;
+    });
+
+  // Error display
+  function showError(msg) {
+
+    const el = document.getElementById("auth-error");
+
+    el.textContent = msg;
+    el.hidden = false;
+  }
+
+  // Login
+  document.getElementById("login-form")
+    .addEventListener("submit", (e) => {
+
+      e.preventDefault();
+
+      document.getElementById("auth-error").hidden = true;
+
+      const email =
+        document.getElementById("login-email").value;
+
+      const password =
+        document.getElementById("login-password").value;
+
+      const res =
+        loginUser(email, password, activeRole);
+
+      if (!res.ok)
+        return showError(res.message);
+
+      window.location.href =
+        activeRole === "admin"
+          ? "admin.html"
+          : redirect;
+    });
+
+  // Register
+  document.getElementById("register-form")
+    .addEventListener("submit", (e) => {
+
+      e.preventDefault();
+
+      const res = registerUser(
+        document.getElementById("reg-name").value,
+        document.getElementById("reg-email").value,
+        document.getElementById("reg-password").value
+      );
+
+      if (!res.ok)
+        return showError(res.message);
+
+      loginUser(
+        document.getElementById("reg-email").value,
+        document.getElementById("reg-password").value
+      );
+
+      window.location.href = redirect;
+    });
+
+  // Default tab
+  setTab(activeRole);
+
+  // Already logged in
+  if (getSession()) {
+
+    const s = getSession();
+
+    window.location.href =
+      s.role === "admin"
+        ? "admin.html"
+        : redirect;
+  }
+
+</script>
+
+</body>
+</html>
+```

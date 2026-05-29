@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Orders – ShopVerse</title>
+  <script src="paths.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main">
+  <h1 class="page-heading">Your Orders</h1>
+  <div id="order-success" class="order-success" hidden></div>
+  <div id="orders-list"></div>
+</main>
+
+<footer class="site-footer">
+  <p>© 2026 ShopVerse</p>
+</footer>
+
+<div id="cart-mount"></div>
+
+<script src="products.js"></script>
+<script src="auth.js"></script>
+<script src="billing.js"></script>
+<script src="script.js"></script>
+<script src="ui.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (!requireLogin("orders.html")) return;
+
+  const placed = new URLSearchParams(location.search).get("placed");
+  if (placed) {
+    const el = document.getElementById("order-success");
+    el.hidden = false;
+    el.innerHTML = "✓ Order <strong>" + placed + "</strong> placed successfully!";
+  }
+
+  const session = getSession();
+
+  function renderOrders() {
+    const orders = getOrdersForUser(session.email);
+    const list = document.getElementById("orders-list");
+
+    if (orders.length === 0) {
+      list.innerHTML = '<p class="empty-state">No orders yet. <a href="index.html">Start shopping</a></p>';
+      return;
+    }
+
+    list.innerHTML = orders
+      .map((o) => {
+        const cancelled = o.status === "cancelled";
+        const statusHtml = cancelled
+          ? '<span class="order-status-cancelled">Cancelled</span>'
+          : '<button type="button" class="btn-cancel-order" onclick="handleCancelOrder(\'' + o.id + '\')">Cancel Order</button>';
+        return `
+      <article class="order-card ${cancelled ? "order-cancelled" : ""}">
+        <div class="order-head">
+          <span>Order ${o.id}</span>
+          <span>${new Date(o.date).toLocaleString("en-IN")}</span>
+        </div>
+        <p>${o.items.length} item(s) · Paid: <strong>₹${o.total.toLocaleString("en-IN")}</strong> · ${o.payment.toUpperCase()}</p>
+        <p class="muted">${o.address.city}, ${o.address.state} – ${o.address.pin}</p>
+        <div class="order-actions">${statusHtml}</div>
+      </article>`;
+      })
+      .join("");
+  }
+
+  window.handleCancelOrder = function (orderId) {
+    if (!confirm("Cancel this order?")) return;
+    const res = cancelOrder(orderId, session.email);
+    if (!res.ok) {
+      alert(res.message);
+      return;
+    }
+    renderOrders();
+  };
+
+  renderOrders();
+});
+</script>
+<style>
+  .order-actions { margin-top: 12px; }
+  .btn-cancel-order {
+    padding: 8px 16px;
+    border: 1px solid #e94560;
+    background: #fff;
+    color: #e94560;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .btn-cancel-order:hover { background: #ffebee; }
+  .order-status-cancelled {
+    color: #c62828;
+    font-weight: 700;
+  }
+  .order-cancelled { opacity: 0.75; }
+</style>
+</body>
+</html>

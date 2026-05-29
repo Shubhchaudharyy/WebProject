@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShopVerse – Online Shopping India</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="home" class="home-page">
+
+<div id="site-header"></div>
+
+<section class="hero-carousel" aria-label="Promotions">
+  <button type="button" class="carousel-prev" aria-label="Previous">‹</button>
+  <div class="carousel-track">
+    <div class="carousel-slide active" style="--slide-bg: linear-gradient(120deg, #2874f0, #1a237e);">
+      <div class="slide-content">
+        <span class="slide-tag">Big Billion Days</span>
+        <h2>Up to 70% OFF on Electronics</h2>
+        <p>Phones, Laptops & more · Bank offers extra 10%</p>
+        <a href="electronics.html" class="slide-cta">Shop Electronics</a>
+      </div>
+    </div>
+    <div class="carousel-slide" style="--slide-bg: linear-gradient(120deg, #e94560, #c2185b);">
+      <div class="slide-content">
+        <span class="slide-tag">Fashion Fiesta</span>
+        <h2>Trending Styles from ₹199</h2>
+        <p>Clothes, Shoes & Accessories</p>
+        <a href="clothes.html" class="slide-cta">Explore Fashion</a>
+      </div>
+    </div>
+    <div class="carousel-slide" style="--slide-bg: linear-gradient(120deg, #00897b, #004d40);">
+      <div class="slide-content">
+        <span class="slide-tag">Home & Living</span>
+        <h2>Furniture Sale · Extra 15% Off</h2>
+        <p>Sofas, Beds & Dining Sets</p>
+        <a href="Furniture.html" class="slide-cta">Shop Home</a>
+      </div>
+    </div>
+  </div>
+  <button type="button" class="carousel-next" aria-label="Next">›</button>
+  <div class="carousel-dots">
+    <button type="button" class="carousel-dot active" aria-label="Slide 1"></button>
+    <button type="button" class="carousel-dot" aria-label="Slide 2"></button>
+    <button type="button" class="carousel-dot" aria-label="Slide 3"></button>
+  </div>
+</section>
+
+<section class="bank-strip">
+  <span>🏦 10% Instant Discount on Axis Bank Cards</span>
+  <span>💳 No Cost EMI on orders above ₹3,000</span>
+  <span>📱 UPI Cashback up to ₹100</span>
+</section>
+
+<section id="categories" class="home-section">
+  <h2 class="home-section-title">Shop by Category</h2>
+  <div class="category-strip" id="category-strip"></div>
+</section>
+
+<section id="deals" class="home-section trend-section">
+  <div id="trend-section-0"></div>
+</section>
+
+<section class="home-section trend-section">
+  <div id="trend-section-1"></div>
+</section>
+
+<section id="trending" class="home-section trend-section">
+  <div id="trend-section-2"></div>
+</section>
+
+<section class="home-section trend-section">
+  <div id="trend-section-3"></div>
+</section>
+
+<section class="home-section trend-section">
+  <div id="trend-section-4"></div>
+</section>
+
+<section class="promo-banners">
+  <a href="electronics.html" class="promo-card promo-blue">
+    <h3>Mobiles & Tablets</h3>
+    <p>From ₹8,999</p>
+  </a>
+  <a href="shoes.html" class="promo-card promo-orange">
+    <h3>Footwear</h3>
+    <p>Min. 40% OFF</p>
+  </a>
+  <a href="books.html" class="promo-card promo-green">
+    <h3>Books & Media</h3>
+    <p>Under ₹299</p>
+  </a>
+  <a href="toys.html" class="promo-card promo-purple">
+    <h3>Kids & Toys</h3>
+    <p>Best picks</p>
+  </a>
+</section>
+
+<footer class="site-footer">
+  <div class="footer-grid">
+    <div>
+      <h4>About ShopVerse</h4>
+      <a href="about.html">About Us</a>
+      <a href="#">Careers</a>
+    </div>
+    <div>
+      <h4>Help</h4>
+      <a href="#">Payments</a>
+      <a href="#">Shipping</a>
+    </div>
+    <div>
+      <h4>Policy</h4>
+      <a href="#">Return Policy</a>
+      <a href="#">Privacy</a>
+    </div>
+    <div>
+      <h4>Social</h4>
+      <a href="#">Facebook</a>
+      <a href="#">Instagram</a>
+    </div>
+  </div>
+  <p class="footer-copy">© 2026 ShopVerse · Designed by <strong>Shubh Madhyan</strong> · <a href="about.html">About Us</a></p>
+</footer>
+
+<div id="cart-mount"></div>
+
+<script src="products.js"></script>
+<script src="auth.js"></script>
+<script src="billing.js"></script>
+<script src="script.js"></script>
+<script src="ui.js"></script>
+<script>
+  injectHeader("site-header");
+  document.getElementById("cart-mount").innerHTML = getCartPanelHtml();
+  updateCartBadge();
+  renderCartPanel();
+</script>
+</body>
+</html>

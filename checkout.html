@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout – ShopVerse</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="checkout-page">
+
+<div id="site-header"></div>
+
+<main class="checkout-layout">
+  <section class="checkout-left">
+    <h2>Delivery Address</h2>
+    <form id="address-form" class="address-form">
+      <div class="form-row">
+        <input type="text" id="addr-name" placeholder="Full Name" required>
+        <input type="tel" id="addr-phone" placeholder="Mobile Number" required pattern="[0-9]{10}">
+      </div>
+      <input type="text" id="addr-line" placeholder="House No., Building, Street" required>
+      <div class="form-row">
+        <input type="text" id="addr-city" placeholder="City" required>
+        <input type="text" id="addr-state" placeholder="State" required>
+        <input type="text" id="addr-pin" placeholder="PIN Code" required pattern="[0-9]{6}">
+      </div>
+      <label class="payment-label">Payment Method</label>
+      <div class="payment-options">
+        <label><input type="radio" name="pay" value="upi" checked> UPI</label>
+        <label><input type="radio" name="pay" value="card"> Credit / Debit Card</label>
+        <label><input type="radio" name="pay" value="cod"> Cash on Delivery</label>
+      </div>
+    </form>
+
+    <h2>Order Items</h2>
+    <div id="checkout-items" class="checkout-items"></div>
+  </section>
+
+  <aside class="checkout-right">
+    <div id="price-details-mount"></div>
+    <button type="button" class="btn-place-order" id="place-order">Place Order</button>
+    <a href="index.html" class="continue-link">Continue Shopping</a>
+  </aside>
+</main>
+
+<script src="products.js"></script>
+<script src="auth.js"></script>
+<script src="billing.js"></script>
+<script src="script.js"></script>
+<script src="ui.js"></script>
+<script>
+  if (!requireLogin("checkout.html")) throw new Error("redirect");
+
+  injectHeader("site-header");
+  document.getElementById("site-footer")?.remove();
+
+  let useCoins = true;
+
+  function refreshBill() {
+    const cart = getCart();
+    if (cart.length === 0) {
+      window.location.href = "index.html";
+      return;
+    }
+    const bill = calculateBill(cart, { useSuperCoins: useCoins });
+    renderPriceDetails("price-details-mount", bill, false);
+    return bill;
+  }
+
+  document.getElementById("price-details-mount").addEventListener("change", (e) => {
+    if (e.target.id === "use-supercoins") {
+      useCoins = e.target.checked;
+      refreshBill();
+    }
+  });
+
+  function renderCheckoutItems() {
+    const cart = getCart();
+    document.getElementById("checkout-items").innerHTML = cart
+      .map(
+        (i) => `
+      <div class="checkout-line">
+        <img src="${i.image}" alt="">
+        <div>
+          <strong>${i.name}</strong>
+          <span>Qty: ${i.qty} · ${formatPrice(i.price * i.qty)}</span>
+        </div>
+      </div>`
+      )
+      .join("");
+  }
+
+  renderCheckoutItems();
+  let currentBill = refreshBill();
+
+  document.getElementById("place-order").addEventListener("click", () => {
+    const form = document.getElementById("address-form");
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+    const cart = getCart();
+    currentBill = calculateBill(cart, { useSuperCoins: useCoins });
+    const session = getSession();
+    const orderId = "SV" + Date.now().toString(36).toUpperCase();
+    saveOrder({
+      id: orderId,
+      userEmail: session.email,
+      userName: session.name,
+      items: cart,
+      address: {
+        name: document.getElementById("addr-name").value,
+        phone: document.getElementById("addr-phone").value,
+        line: document.getElementById("addr-line").value,
+        city: document.getElementById("addr-city").value,
+        state: document.getElementById("addr-state").value,
+        pin: document.getElementById("addr-pin").value
+      },
+      payment: document.querySelector('input[name="pay"]:checked').value,
+      bill: currentBill,
+      total: useCoins ? currentBill.totalWithCoins : currentBill.total,
+      date: new Date().toISOString()
+    });
+    clearCart();
+    window.location.href = "orders.html?placed=" + orderId;
+  });
+</script>
+<div id="cart-mount"></div>
+<script>document.getElementById("cart-mount").innerHTML = getCartPanelHtml(); updateCartBadge();</script>
+</body>
+</html>

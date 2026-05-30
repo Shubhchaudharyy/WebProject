@@ -1,6 +1,6 @@
 # ShopVerse
 
-A full-stack e-commerce website built with **HTML**, **CSS**, **JavaScript**, and **Node.js**.
+A full-stack e-commerce website built with **HTML**, **CSS**, **JavaScript**, **Node.js**, and **MongoDB Atlas**.
 
 Browse categories, search products, add to cart, checkout with Flipkart-style price details, user/admin login, and order management.
 
@@ -13,7 +13,7 @@ Run the Node server locally, or deploy the frontend to GitHub Pages and the back
 - Homepage with trending collections & carousel
 - Category pages: Shoes, Fashion, Electronics, Books, Toys, Furniture
 - Cart, billing, login (user & admin), orders & cancel order
-- Temporary backend memory storage for users and orders
+- Permanent MongoDB Atlas storage for users and orders
 - Responsive layout for desktop
 
 ## Designed By
@@ -33,9 +33,14 @@ Run the Node server locally, or deploy the frontend to GitHub Pages and the back
 - **Customer:** `user@shopverse.com` / `user123`
 - **Admin:** `admin@shopverse.com` / `admin123`
 
-## Temporary Backend
+## MongoDB Atlas Setup
 
-The current Render-friendly backend does not connect to MySQL. It uses temporary in-memory users and orders so the site can run on free hosting without `localhost:3306`.
+The backend uses MongoDB Atlas, so registrations, password changes, orders, and admin dashboard stats survive Render restarts and redeploys.
+
+1. Create a free MongoDB Atlas cluster.
+2. Create a database user and password.
+3. In Network Access, allow Render to connect. For quick setup, use `0.0.0.0/0`.
+4. Copy the MongoDB connection string and replace `<password>` with your database user password.
 
 Install backend dependencies:
 
@@ -51,7 +56,7 @@ npm start
 
 Then open `http://localhost:3000`.
 
-Temporary storage resets whenever the Render service restarts or redeploys.
+For local testing, create `.env` from `.env.example` and set `MONGODB_URI`.
 
 ## GitHub Pages Setup
 
@@ -62,6 +67,7 @@ GitHub Pages cannot run Node.js. Keep GitHub Pages for the HTML/CSS/JS frontend,
 Add these Environment Variables in your Render Web Service:
 
 ```env
+MONGODB_URI=mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/shopverse?retryWrites=true&w=majority
 SESSION_SECRET=use-a-long-random-secret
 CORS_ORIGIN=https://your-github-username.github.io,https://your-render-service.onrender.com
 NODE_ENV=production
@@ -83,9 +89,8 @@ https://your-render-service.onrender.com/api/health
 If Render still shows "Application exited early", open the Render logs and look for:
 
 ```text
-Startup config
 ShopVerse running on port ...
-MySQL disabled temporarily. Using in-memory users/orders.
+MongoDB connected.
 ```
 
 If you do not see `ShopVerse running on port ...`, check that the Start Command is exactly `npm start` and that the service root points to this project folder.
@@ -109,8 +114,8 @@ style.css           Styles
 script.js           Cart
 auth.js             Authentication
 api.js              API requests
-server.js           Node/Express backend
-database.sql        Old MySQL schema, not used by the temporary backend
+server.js           Node/Express + MongoDB backend
+database.sql        Old MySQL schema, not used by MongoDB backend
 products.js         Product catalog
 billing.js          Price breakdown
 ui.js               Shared UI

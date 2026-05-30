@@ -1,55 +1,6 @@
-/* ShopVerse authentication backed by MySQL API */
+/* ShopVerse authentication backed by the persistent API */
 let currentSession = null;
 let sessionLoaded = false;
-
-const DEMO_USERS = [
-  {
-    id: 1,
-    name: "ShopVerse Admin",
-    email: "admin@shopverse.com",
-    password: "admin123",
-    role: "admin"
-  },
-  {
-    id: 2,
-    name: "Demo User",
-    email: "user@shopverse.com",
-    password: "user123",
-    role: "user"
-  }
-];
-
-function readDemoSession() {
-  const match = document.cookie.match(/(?:^|; )shopverse_demo_session=([^;]+)/);
-  if (!match) return null;
-
-  try {
-    return JSON.parse(decodeURIComponent(match[1]));
-  } catch {
-    return null;
-  }
-}
-
-function setDemoSession(user) {
-  const session = {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role
-  };
-
-  document.cookie =
-    "shopverse_demo_session="
-    + encodeURIComponent(JSON.stringify(session))
-    + "; path=/; max-age=604800; SameSite=Lax";
-
-  currentSession = session;
-  sessionLoaded = true;
-}
-
-function clearDemoSession() {
-  document.cookie = "shopverse_demo_session=; path=/; max-age=0; SameSite=Lax";
-}
 
 async function getSession() {
   if (sessionLoaded) return currentSession;
@@ -58,7 +9,7 @@ async function getSession() {
     const data = await apiFetch("/api/auth/session");
     currentSession = data.user || null;
   } catch {
-    currentSession = readDemoSession();
+    currentSession = null;
   }
 
   sessionLoaded = true;
@@ -80,18 +31,6 @@ async function registerUser(name, email, password) {
     sessionLoaded = true;
     return { ok: true, user: data.user };
   } catch (err) {
-    if (
-      err.message.includes("Backend") ||
-      err.message.includes("configured") ||
-      err.message.includes("Request failed")
-    ) {
-      return {
-        ok: false,
-        message:
-          "Backend is offline. Use demo admin: admin@shopverse.com / admin123, or start the MySQL server."
-      };
-    }
-
     return { ok: false, message: err.message };
   }
 }
@@ -106,22 +45,6 @@ async function loginUser(email, password, expectedRole) {
     sessionLoaded = true;
     return { ok: true, user: data.user };
   } catch (err) {
-    const demoUser = DEMO_USERS.find(
-      (u) =>
-        u.email.toLowerCase() === String(email || "").trim().toLowerCase() &&
-        u.password === password &&
-        (!expectedRole || u.role === expectedRole)
-    );
-
-    if (demoUser) {
-      setDemoSession(demoUser);
-      return {
-        ok: true,
-        user: currentSession,
-        demo: true
-      };
-    }
-
     return { ok: false, message: err.message };
   }
 }
@@ -144,7 +67,6 @@ async function logoutUser() {
   } finally {
     currentSession = null;
     sessionLoaded = true;
-    clearDemoSession();
     window.location.href = "index.html";
   }
 }
@@ -175,30 +97,18 @@ async function requireAdmin() {
 }
 
 async function getUsers() {
-  try {
-    const data = await apiFetch("/api/admin/users");
-    return data.users || [];
-  } catch {
-    return DEMO_USERS.map(({ password, ...user }) => user);
-  }
+  const data = await apiFetch("/api/admin/users");
+  return data.users || [];
 }
 
 async function getOrders() {
-  try {
-    const data = await apiFetch("/api/admin/orders");
-    return data.orders || [];
-  } catch {
-    return [];
-  }
+  const data = await apiFetch("/api/admin/orders");
+  return data.orders || [];
 }
 
 async function getOrdersForUser() {
-  try {
-    const data = await apiFetch("/api/orders");
-    return data.orders || [];
-  } catch {
-    return [];
-  }
+  const data = await apiFetch("/api/orders");
+  return data.orders || [];
 }
 
 async function saveOrder(order) {

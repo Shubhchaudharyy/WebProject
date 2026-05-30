@@ -324,7 +324,7 @@ function mapOrder(row) {
 seedDefaultUsers()
   .then(() => {
     app.listen(port, () => {
-      console.log(`ShopVerse running at http://localhost:${port}`);
+      console.log(`ShopVerse running on ${port}`);
     });
   })
   .catch((err) => {

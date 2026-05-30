@@ -3,46 +3,112 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login – ShopVerse</title>
+  <title>Login - ShopVerse</title>
+
   <script src="paths.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body class="auth-page" data-auth="login">
 
 <div id="site-header"></div>
 
 <main class="auth-container">
   <div class="auth-card">
+
     <div class="auth-tabs">
-      <button type="button" class="auth-tab active" data-tab="user">Customer</button>
-      <button type="button" class="auth-tab" data-tab="admin">Admin</button>
+      <button type="button" class="auth-tab active" data-tab="user">
+        Customer
+      </button>
+
+      <button type="button" class="auth-tab" data-tab="admin">
+        Admin
+      </button>
     </div>
 
     <h1 id="auth-title">Login to ShopVerse</h1>
-    <p class="auth-sub">Shop deals, track orders & checkout faster</p>
+
+    <p class="auth-sub">
+      Shop deals, track orders and checkout faster
+    </p>
 
     <div id="auth-error" class="auth-error" hidden></div>
 
     <form id="login-form" class="auth-form">
-      <label>Email</label>
-      <input type="email" id="login-email" required placeholder="user@shopverse.com" autocomplete="username">
-      <label>Password</label>
-      <input type="password" id="login-password" required placeholder="••••••••" autocomplete="current-password">
-      <button type="submit" class="btn-primary full">Sign In</button>
+      <label for="login-email">Email</label>
+      <input
+        type="email"
+        id="login-email"
+        required
+        placeholder="user@shopverse.com"
+        autocomplete="username">
+
+      <label for="login-password">Password</label>
+      <div class="password-field">
+        <input
+          type="password"
+          id="login-password"
+          required
+          placeholder="Enter password"
+          autocomplete="current-password">
+        <button type="button" class="password-toggle" data-target="login-password" aria-label="Show password" title="Show password">
+          <span aria-hidden="true">Show</span>
+        </button>
+      </div>
+
+      <button type="submit" class="btn-primary full">
+        Sign In
+      </button>
     </form>
 
     <hr class="auth-divider">
-    <p class="auth-switch">New customer? <button type="button" id="show-register">Create account</button></p>
+
+    <p class="auth-switch">
+      New customer?
+
+      <button type="button" id="show-register">
+        Create account
+      </button>
+    </p>
 
     <form id="register-form" class="auth-form" hidden>
-      <label>Full Name</label>
-      <input type="text" id="reg-name" required placeholder="Your name">
-      <label>Email</label>
-      <input type="email" id="reg-email" required placeholder="you@email.com">
-      <label>Password</label>
-      <input type="password" id="reg-password" required minlength="6" placeholder="Min 6 characters">
-      <button type="submit" class="btn-primary full">Register</button>
-      <button type="button" class="btn-text" id="back-login">Back to login</button>
+      <label for="reg-name">Full Name</label>
+      <input
+        type="text"
+        id="reg-name"
+        required
+        placeholder="Your name"
+        autocomplete="name">
+
+      <label for="reg-email">Email</label>
+      <input
+        type="email"
+        id="reg-email"
+        required
+        placeholder="you@email.com"
+        autocomplete="email">
+
+      <label for="reg-password">Password</label>
+      <div class="password-field">
+        <input
+          type="password"
+          id="reg-password"
+          required
+          minlength="6"
+          placeholder="Min 6 characters"
+          autocomplete="new-password">
+        <button type="button" class="password-toggle" data-target="reg-password" aria-label="Show password" title="Show password">
+          <span aria-hidden="true">Show</span>
+        </button>
+      </div>
+
+      <button type="submit" class="btn-primary full">
+        Register
+      </button>
+
+      <button type="button" class="btn-text" id="back-login">
+        Back to login
+      </button>
     </form>
 
     <div class="demo-credentials">
@@ -50,40 +116,55 @@
       <p>Customer: user@shopverse.com / user123</p>
       <p>Admin: admin@shopverse.com / admin123</p>
     </div>
+
   </div>
 </main>
 
 <script src="products.js"></script>
+<script src="api-config.js"></script>
+<script src="api.js"></script>
 <script src="auth.js"></script>
 <script src="script.js"></script>
 <script src="ui.js"></script>
+
 <script>
-  let activeRole = new URLSearchParams(location.search).get("role") === "admin" ? "admin" : "user";
-  const redirect = new URLSearchParams(location.search).get("redirect") || "index.html";
+  let activeRole =
+    new URLSearchParams(location.search).get("role") === "admin"
+      ? "admin"
+      : "user";
+
+  const redirect =
+    new URLSearchParams(location.search).get("redirect")
+      || "index.html";
 
   function setTab(role) {
     activeRole = role;
-    document.querySelectorAll(".auth-tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === role));
-    document.getElementById("auth-title").textContent = role === "admin" ? "Admin Login" : "Login to ShopVerse";
-    document.getElementById("show-register").parentElement.style.display = role === "admin" ? "none" : "block";
+
+    document
+      .querySelectorAll(".auth-tab")
+      .forEach((t) => {
+        t.classList.toggle(
+          "active",
+          t.dataset.tab === role
+        );
+      });
+
+    document.getElementById("auth-title").textContent =
+      role === "admin"
+        ? "Admin Login"
+        : "Login to ShopVerse";
+
+    document.getElementById("show-register")
+      .parentElement.style.display =
+        role === "admin"
+          ? "none"
+          : "block";
+
     if (role === "admin") {
       document.getElementById("register-form").hidden = true;
       document.getElementById("login-form").hidden = false;
     }
   }
-
-  document.querySelectorAll(".auth-tab").forEach((btn) => {
-    btn.addEventListener("click", () => setTab(btn.dataset.tab));
-  });
-
-  document.getElementById("show-register").addEventListener("click", () => {
-    document.getElementById("login-form").hidden = true;
-    document.getElementById("register-form").hidden = false;
-  });
-  document.getElementById("back-login").addEventListener("click", () => {
-    document.getElementById("register-form").hidden = true;
-    document.getElementById("login-form").hidden = false;
-  });
 
   function showError(msg) {
     const el = document.getElementById("auth-error");
@@ -91,33 +172,95 @@
     el.hidden = false;
   }
 
-  document.getElementById("login-form").addEventListener("submit", (e) => {
-    e.preventDefault();
+  function hideError() {
     document.getElementById("auth-error").hidden = true;
-    const email = document.getElementById("login-email").value;
-    const password = document.getElementById("login-password").value;
-    const res = loginUser(email, password, activeRole);
-    if (!res.ok) return showError(res.message);
-    window.location.href = activeRole === "admin" ? "admin.html" : redirect;
-  });
+  }
 
-  document.getElementById("register-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-    const res = registerUser(
-      document.getElementById("reg-name").value,
-      document.getElementById("reg-email").value,
-      document.getElementById("reg-password").value
-    );
-    if (!res.ok) return showError(res.message);
-    loginUser(document.getElementById("reg-email").value, document.getElementById("reg-password").value);
-    window.location.href = redirect;
-  });
+  document.querySelectorAll(".auth-tab")
+    .forEach((btn) => {
+      btn.addEventListener("click", () => {
+        hideError();
+        setTab(btn.dataset.tab);
+      });
+    });
+
+  document.getElementById("show-register")
+    .addEventListener("click", () => {
+      hideError();
+      document.getElementById("login-form").hidden = true;
+      document.getElementById("register-form").hidden = false;
+    });
+
+  document.getElementById("back-login")
+    .addEventListener("click", () => {
+      hideError();
+      document.getElementById("register-form").hidden = true;
+      document.getElementById("login-form").hidden = false;
+    });
+
+  document.querySelectorAll(".password-toggle")
+    .forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const input = document.getElementById(btn.dataset.target);
+        const isHidden = input.type === "password";
+        input.type = isHidden ? "text" : "password";
+        btn.setAttribute("aria-label", isHidden ? "Hide password" : "Show password");
+        btn.setAttribute("title", isHidden ? "Hide password" : "Show password");
+        btn.querySelector("span").textContent = isHidden ? "Hide" : "Show";
+      });
+    });
+
+  document.getElementById("login-form")
+    .addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideError();
+
+      const email =
+        document.getElementById("login-email").value;
+
+      const password =
+        document.getElementById("login-password").value;
+
+      const res =
+        await loginUser(email, password, activeRole);
+
+      if (!res.ok)
+        return showError(res.message);
+
+      window.location.href =
+        activeRole === "admin"
+          ? "admin.html"
+          : redirect;
+    });
+
+  document.getElementById("register-form")
+    .addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideError();
+
+      const res = await registerUser(
+        document.getElementById("reg-name").value,
+        document.getElementById("reg-email").value,
+        document.getElementById("reg-password").value
+      );
+
+      if (!res.ok)
+        return showError(res.message);
+
+      window.location.href = redirect;
+    });
 
   setTab(activeRole);
-  if (getSession()) {
-    const s = getSession();
-    window.location.href = s.role === "admin" ? "admin.html" : redirect;
-  }
+
+  getSession().then((s) => {
+    if (!s) return;
+
+    window.location.href =
+      s.role === "admin"
+        ? "admin.html"
+        : redirect;
+  });
 </script>
+
 </body>
 </html>

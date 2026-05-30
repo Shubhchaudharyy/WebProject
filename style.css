@@ -116,6 +116,11 @@ a {
   color: var(--primary);
 }
 
+.dashboard-link {
+  color: var(--primary);
+  font-weight: 700;
+}
+
 .account-menu {
   position: relative;
 }
@@ -1101,8 +1106,36 @@ a {
   border-radius: 4px;
 }
 
-.btn-primary.full {
-  width: 100%;
+.password-field {
+  position: relative;
+  margin-bottom: 14px;
+}
+
+.password-field input {
+  margin-bottom: 0;
+  padding-right: 72px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: #eef4ff;
+  color: var(--primary);
+  border-radius: 4px;
+  padding: 6px 8px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.password-toggle:hover {
+  background: #dceaff;
+}
+
+.btn-primary {
   padding: 14px;
   background: var(--primary);
   color: #fff;
@@ -1110,6 +1143,14 @@ a {
   border-radius: 4px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.btn-primary.full {
+  width: 100%;
+}
+
+.btn-primary:hover {
+  background: var(--primary-dark);
 }
 
 .auth-error {
@@ -1239,6 +1280,47 @@ a {
 .admin-table-wrap {
   overflow-x: auto;
   margin-bottom: 32px;
+}
+
+.admin-panel-section {
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+}
+
+.admin-form {
+  max-width: 440px;
+}
+
+.admin-form label {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.admin-form input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.form-message {
+  max-width: 440px;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+
+.form-message.success {
+  background: #e8f5e9;
+  color: var(--green);
+}
+
+.form-message.error {
+  background: #ffebee;
+  color: #c62828;
 }
 
 .page-main {

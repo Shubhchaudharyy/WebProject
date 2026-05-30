@@ -1,0 +1,27 @@
+CREATE DATABASE IF NOT EXISTS shopverse;
+USE shopverse;
+
+CREATE TABLE IF NOT EXISTS users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  email VARCHAR(190) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  role ENUM('user', 'admin') NOT NULL DEFAULT 'user',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+  id VARCHAR(40) PRIMARY KEY,
+  user_id INT NOT NULL,
+  user_email VARCHAR(190) NOT NULL,
+  user_name VARCHAR(120) NOT NULL,
+  items_json JSON NOT NULL,
+  address_json JSON NOT NULL,
+  payment VARCHAR(40) NOT NULL,
+  bill_json JSON NULL,
+  total DECIMAL(12, 2) NOT NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'placed',
+  cancelled_at DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id)
+);

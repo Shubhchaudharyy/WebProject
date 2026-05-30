@@ -1,146 +1,236 @@
-/* ShopVerse authentication (client-side demo) */
-const USERS_KEY = "shopverse_users";
-const SESSION_KEY = "shopverse_session";
-const ORDERS_KEY = "shopverse_orders";
+/* ShopVerse authentication backed by MySQL API */
+let currentSession = null;
+let sessionLoaded = false;
 
-function hashPassword(pw) {
-  return btoa(unescape(encodeURIComponent(pw)));
-}
-
-function initDefaultUsers() {
-  const users = getUsers();
-  if (users.length > 0) return;
-  const defaults = [
-    { name: "Admin", email: "admin@shopverse.com", password: hashPassword("admin123"), role: "admin" },
-    { name: "Demo User", email: "user@shopverse.com", password: hashPassword("user123"), role: "user" }
-  ];
-  localStorage.setItem(USERS_KEY, JSON.stringify(defaults));
-}
-
-function getUsers() {
-  try {
-    return JSON.parse(localStorage.getItem(USERS_KEY)) || [];
-  } catch {
-    return [];
+const DEMO_USERS = [
+  {
+    id: 1,
+    name: "ShopVerse Admin",
+    email: "admin@shopverse.com",
+    password: "admin123",
+    role: "admin"
+  },
+  {
+    id: 2,
+    name: "Demo User",
+    email: "user@shopverse.com",
+    password: "user123",
+    role: "user"
   }
-}
+];
 
-function saveUsers(users) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-}
+function readDemoSession() {
+  const match = document.cookie.match(/(?:^|; )shopverse_demo_session=([^;]+)/);
+  if (!match) return null;
 
-function getSession() {
   try {
-    const s = JSON.parse(localStorage.getItem(SESSION_KEY));
-    if (!s || !s.email) return null;
-    return {
-      email: s.email,
-      name: s.name || "User",
-      role: s.role || "user"
-    };
+    return JSON.parse(decodeURIComponent(match[1]));
   } catch {
     return null;
   }
 }
 
-function setSession(user) {
-  localStorage.setItem(
-    SESSION_KEY,
-    JSON.stringify({ email: user.email, name: user.name, role: user.role })
-  );
+function setDemoSession(user) {
+  const session = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role
+  };
+
+  document.cookie =
+    "shopverse_demo_session="
+    + encodeURIComponent(JSON.stringify(session))
+    + "; path=/; max-age=604800; SameSite=Lax";
+
+  currentSession = session;
+  sessionLoaded = true;
 }
 
-function clearSession() {
-  localStorage.removeItem(SESSION_KEY);
+function clearDemoSession() {
+  document.cookie = "shopverse_demo_session=; path=/; max-age=0; SameSite=Lax";
 }
 
-function registerUser(name, email, password) {
-  const users = getUsers();
-  if (users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
-    return { ok: false, message: "Email already registered" };
-  }
-  users.push({
-    name,
-    email: email.toLowerCase(),
-    password: hashPassword(password),
-    role: "user"
-  });
-  saveUsers(users);
-  return { ok: true };
-}
+async function getSession() {
+  if (sessionLoaded) return currentSession;
 
-function loginUser(email, password, expectedRole) {
-  const user = getUsers().find((u) => u.email === email.toLowerCase());
-  if (!user || user.password !== hashPassword(password)) {
-    return { ok: false, message: "Invalid email or password" };
-  }
-  if (expectedRole && user.role !== expectedRole) {
-    return {
-      ok: false,
-      message: expectedRole === "admin" ? "Not an admin account" : "Use the customer login"
-    };
-  }
-  setSession(user);
-  return { ok: true, user };
-}
-
-function logoutUser() {
-  clearSession();
-  window.location.href = "index.html";
-}
-
-window.logoutUser = logoutUser;
-
-function requireLogin(redirectPage) {
-  if (!getSession()) {
-    window.location.href = "login.html?redirect=" + encodeURIComponent(redirectPage || "index.html");
-    return false;
-  }
-  return true;
-}
-
-function requireAdmin() {
-  const session = getSession();
-  if (!session || session.role !== "admin") {
-    window.location.href = "login.html?role=admin&redirect=admin.html";
-    return false;
-  }
-  return true;
-}
-
-function saveOrder(order) {
-  const orders = JSON.parse(localStorage.getItem(ORDERS_KEY) || "[]");
-  orders.unshift(order);
-  localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
-}
-
-function getOrders() {
   try {
-    return JSON.parse(localStorage.getItem(ORDERS_KEY)) || [];
+    const data = await apiFetch("/api/auth/session");
+    currentSession = data.user || null;
+  } catch {
+    currentSession = readDemoSession();
+  }
+
+  sessionLoaded = true;
+  return currentSession;
+}
+
+async function refreshSession() {
+  sessionLoaded = false;
+  return getSession();
+}
+
+async function registerUser(name, email, password) {
+  try {
+    const data = await apiFetch("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ name, email, password })
+    });
+    currentSession = data.user;
+    sessionLoaded = true;
+    return { ok: true, user: data.user };
+  } catch (err) {
+    if (
+      err.message.includes("Backend") ||
+      err.message.includes("configured") ||
+      err.message.includes("Request failed")
+    ) {
+      return {
+        ok: false,
+        message:
+          "Backend is offline. Use demo admin: admin@shopverse.com / admin123, or start the MySQL server."
+      };
+    }
+
+    return { ok: false, message: err.message };
+  }
+}
+
+async function loginUser(email, password, expectedRole) {
+  try {
+    const data = await apiFetch("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password, expectedRole })
+    });
+    currentSession = data.user;
+    sessionLoaded = true;
+    return { ok: true, user: data.user };
+  } catch (err) {
+    const demoUser = DEMO_USERS.find(
+      (u) =>
+        u.email.toLowerCase() === String(email || "").trim().toLowerCase() &&
+        u.password === password &&
+        (!expectedRole || u.role === expectedRole)
+    );
+
+    if (demoUser) {
+      setDemoSession(demoUser);
+      return {
+        ok: true,
+        user: currentSession,
+        demo: true
+      };
+    }
+
+    return { ok: false, message: err.message };
+  }
+}
+
+async function changePassword(email, currentPassword, newPassword) {
+  try {
+    const data = await apiFetch("/api/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword })
+    });
+    return { ok: true, message: data.message };
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+}
+
+async function logoutUser() {
+  try {
+    await apiFetch("/api/auth/logout", { method: "POST" });
+  } finally {
+    currentSession = null;
+    sessionLoaded = true;
+    clearDemoSession();
+    window.location.href = "index.html";
+  }
+}
+
+async function requireLogin(redirectPage) {
+  if (!(await getSession())) {
+    window.location.href =
+      "login.html?redirect="
+      + encodeURIComponent(redirectPage || "index.html");
+
+    return false;
+  }
+
+  return true;
+}
+
+async function requireAdmin() {
+  const session = await getSession();
+
+  if (!session || session.role !== "admin") {
+    window.location.href =
+      "login.html?role=admin&redirect=admin.html";
+
+    return false;
+  }
+
+  return true;
+}
+
+async function getUsers() {
+  try {
+    const data = await apiFetch("/api/admin/users");
+    return data.users || [];
+  } catch {
+    return DEMO_USERS.map(({ password, ...user }) => user);
+  }
+}
+
+async function getOrders() {
+  try {
+    const data = await apiFetch("/api/admin/orders");
+    return data.orders || [];
   } catch {
     return [];
   }
 }
 
-function getOrdersForUser(email) {
-  return getOrders().filter((o) => o.userEmail === email);
+async function getOrdersForUser() {
+  try {
+    const data = await apiFetch("/api/orders");
+    return data.orders || [];
+  } catch {
+    return [];
+  }
 }
 
-function cancelOrder(orderId, userEmail) {
-  const orders = getOrders();
-  const order = orders.find((o) => o.id === orderId && o.userEmail === userEmail);
-  if (!order) {
-    return { ok: false, message: "Order not found" };
-  }
-  if (order.status === "cancelled") {
-    return { ok: false, message: "Order is already cancelled" };
-  }
-  order.status = "cancelled";
-  order.cancelledAt = new Date().toISOString();
-  localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
-  return { ok: true };
+async function saveOrder(order) {
+  const data = await apiFetch("/api/orders", {
+    method: "POST",
+    body: JSON.stringify(order)
+  });
+
+  return data.id;
 }
 
+async function cancelOrder(orderId) {
+  try {
+    await apiFetch("/api/orders/" + encodeURIComponent(orderId) + "/cancel", {
+      method: "POST"
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+}
+
+window.getSession = getSession;
+window.refreshSession = refreshSession;
+window.registerUser = registerUser;
+window.loginUser = loginUser;
+window.changePassword = changePassword;
+window.logoutUser = logoutUser;
+window.requireLogin = requireLogin;
+window.requireAdmin = requireAdmin;
+window.getUsers = getUsers;
+window.getOrders = getOrders;
+window.getOrdersForUser = getOrdersForUser;
+window.saveOrder = saveOrder;
 window.cancelOrder = cancelOrder;
-
-initDefaultUsers();

@@ -1,16 +1,12 @@
 /* ShopVerse – cart & checkout */
-const CART_KEY = "shopverse_cart";
+let shopverseCart = [];
 
 function getCart() {
-  try {
-    return JSON.parse(localStorage.getItem(CART_KEY)) || [];
-  } catch {
-    return [];
-  }
+  return shopverseCart;
 }
 
 function saveCart(cart) {
-  localStorage.setItem(CART_KEY, JSON.stringify(cart));
+  shopverseCart = cart;
   updateCartBadge();
   renderCartPanel();
 }
@@ -159,13 +155,13 @@ function searchItems() {
   });
 }
 
-function checkout() {
+async function checkout() {
   const cart = getCart();
   if (cart.length === 0) {
     showToast("Add items to cart first");
     return;
   }
-  if (typeof getSession === "function" && !getSession()) {
+  if (typeof getSession === "function" && !(await getSession())) {
     window.location.href = "login.html?redirect=checkout.html";
     return;
   }

@@ -24,13 +24,15 @@
 <div id="cart-mount"></div>
 
 <script src="products.js"></script>
+<script src="api-config.js"></script>
+<script src="api.js"></script>
 <script src="auth.js"></script>
 <script src="billing.js"></script>
 <script src="script.js"></script>
 <script src="ui.js"></script>
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-  if (!requireLogin("orders.html")) return;
+document.addEventListener("DOMContentLoaded", async function () {
+  if (!(await requireLogin("orders.html"))) return;
 
   const placed = new URLSearchParams(location.search).get("placed");
   if (placed) {
@@ -39,10 +41,10 @@ document.addEventListener("DOMContentLoaded", function () {
     el.innerHTML = "✓ Order <strong>" + placed + "</strong> placed successfully!";
   }
 
-  const session = getSession();
+  const session = await getSession();
 
-  function renderOrders() {
-    const orders = getOrdersForUser(session.email);
+  async function renderOrders() {
+    const orders = await getOrdersForUser(session.email);
     const list = document.getElementById("orders-list");
 
     if (orders.length === 0) {
@@ -70,17 +72,17 @@ document.addEventListener("DOMContentLoaded", function () {
       .join("");
   }
 
-  window.handleCancelOrder = function (orderId) {
+  window.handleCancelOrder = async function (orderId) {
     if (!confirm("Cancel this order?")) return;
-    const res = cancelOrder(orderId, session.email);
+    const res = await cancelOrder(orderId, session.email);
     if (!res.ok) {
       alert(res.message);
       return;
     }
-    renderOrders();
+    await renderOrders();
   };
 
-  renderOrders();
+  await renderOrders();
 });
 </script>
 <style>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Panel – ShopVerse</title>
+  <title>Admin Panel - ShopVerse</title>
   <script src="paths.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -16,6 +16,7 @@
     <h2>Admin Panel</h2>
     <nav>
       <a href="#dashboard" class="active">Dashboard</a>
+      <a href="#password-settings">Change Password</a>
       <a href="index.html">View Store</a>
       <button type="button" onclick="logoutUser()">Logout</button>
     </nav>
@@ -42,24 +43,77 @@
         <tbody id="users-body"></tbody>
       </table>
     </div>
+
+    <section class="admin-panel-section" id="password-settings">
+      <h2>Change Admin Password</h2>
+      <div id="password-message" class="form-message" hidden></div>
+
+      <form id="change-password-form" class="admin-form">
+        <label for="current-password">Current Password</label>
+        <div class="password-field">
+          <input
+            type="password"
+            id="current-password"
+            required
+            autocomplete="current-password">
+          <button type="button" class="password-toggle" data-target="current-password" aria-label="Show password" title="Show password">
+            <span aria-hidden="true">Show</span>
+          </button>
+        </div>
+
+        <label for="new-password">New Password</label>
+        <div class="password-field">
+          <input
+            type="password"
+            id="new-password"
+            required
+            minlength="6"
+            autocomplete="new-password">
+          <button type="button" class="password-toggle" data-target="new-password" aria-label="Show password" title="Show password">
+            <span aria-hidden="true">Show</span>
+          </button>
+        </div>
+
+        <label for="confirm-password">Confirm New Password</label>
+        <div class="password-field">
+          <input
+            type="password"
+            id="confirm-password"
+            required
+            minlength="6"
+            autocomplete="new-password">
+          <button type="button" class="password-toggle" data-target="confirm-password" aria-label="Show password" title="Show password">
+            <span aria-hidden="true">Show</span>
+          </button>
+        </div>
+
+        <button type="submit" class="btn-primary">
+          Update Password
+        </button>
+      </form>
+    </section>
   </section>
 </main>
 
 <script src="products.js"></script>
+<script src="api-config.js"></script>
+<script src="api.js"></script>
 <script src="auth.js"></script>
 <script src="script.js"></script>
 <script src="ui.js"></script>
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-  if (!requireAdmin()) return;
+document.addEventListener("DOMContentLoaded", async function () {
+  if (!(await requireAdmin())) return;
+  await injectHeader("site-header", { showCategoryNav: true });
 
-  const orders = getOrders();
-  const users = getUsers();
+  const orders = await getOrders();
+  const users = await getUsers();
+  const session = await getSession();
   const revenue = orders.reduce((s, o) => s + (o.total || 0), 0);
 
   document.getElementById("stats").innerHTML = `
     <div class="stat-card"><span>Total Orders</span><strong>${orders.length}</strong></div>
-    <div class="stat-card"><span>Revenue (demo)</span><strong>₹${revenue.toLocaleString("en-IN")}</strong></div>
+    <div class="stat-card"><span>Revenue (demo)</span><strong>Rs ${revenue.toLocaleString("en-IN")}</strong></div>
     <div class="stat-card"><span>Products</span><strong>${SHOP_PRODUCTS.length}</strong></div>
     <div class="stat-card"><span>Users</span><strong>${users.length}</strong></div>`;
 
@@ -74,7 +128,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <td>${o.id}</td>
         <td>${o.userName}<br><small>${o.userEmail}</small></td>
         <td>${o.items.reduce((s, i) => s + i.qty, 0)}</td>
-        <td>₹${o.total.toLocaleString("en-IN")}</td>
+        <td>Rs ${o.total.toLocaleString("en-IN")}</td>
         <td>${new Date(o.date).toLocaleDateString("en-IN")}</td>
       </tr>`
           )
@@ -83,6 +137,48 @@ document.addEventListener("DOMContentLoaded", function () {
   document.getElementById("users-body").innerHTML = users
     .map((u) => `<tr><td>${u.name}</td><td>${u.email}</td><td>${u.role}</td></tr>`)
     .join("");
+
+  document.querySelectorAll(".password-toggle")
+    .forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const input = document.getElementById(btn.dataset.target);
+        const isHidden = input.type === "password";
+        input.type = isHidden ? "text" : "password";
+        btn.setAttribute("aria-label", isHidden ? "Hide password" : "Show password");
+        btn.setAttribute("title", isHidden ? "Hide password" : "Show password");
+        btn.querySelector("span").textContent = isHidden ? "Hide" : "Show";
+      });
+    });
+
+  document.getElementById("change-password-form")
+    .addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const message = document.getElementById("password-message");
+      const currentPassword = document.getElementById("current-password").value;
+      const newPassword = document.getElementById("new-password").value;
+      const confirmPassword = document.getElementById("confirm-password").value;
+
+      message.hidden = true;
+      message.className = "form-message";
+
+      if (newPassword !== confirmPassword) {
+        message.textContent = "New passwords do not match";
+        message.classList.add("error");
+        message.hidden = false;
+        return;
+      }
+
+      const res = await changePassword(session.email, currentPassword, newPassword);
+
+      message.textContent = res.message;
+      message.classList.add(res.ok ? "success" : "error");
+      message.hidden = false;
+
+      if (res.ok) {
+        e.target.reset();
+      }
+    });
 });
 </script>
 </body>

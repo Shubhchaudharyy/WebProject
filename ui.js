@@ -5,8 +5,8 @@ function escapeHtml(str) {
   return d.innerHTML;
 }
 
-function renderSiteHeader(options = {}) {
-  const session = typeof getSession === "function" ? getSession() : null;
+async function renderSiteHeader(options = {}) {
+  const session = typeof getSession === "function" ? await getSession() : null;
   const searchPlaceholder = options.searchPlaceholder || "Search products, brands and more";
   const showNav = options.showCategoryNav !== false;
 
@@ -18,7 +18,9 @@ function renderSiteHeader(options = {}) {
         <div class="account-dropdown">
           <span class="dropdown-email">${escapeHtml(session.email)}</span>
           <a href="orders.html">Your Orders</a>
-          ${session.role === "admin" ? '<a href="admin.html">Admin Panel</a>' : ""}
+          ${session.role === "admin"
+? '<a href="admin.html">Admin Panel</a>'
+: ""}
           <button type="button" onclick="logoutUser()">Sign Out</button>
         </div>
       </div>`;
@@ -41,6 +43,7 @@ function renderSiteHeader(options = {}) {
       </div>
       <nav class="header-actions">
         ${accountHtml}
+        ${session && session.role === "admin" ? '<a href="admin.html" class="nav-link-btn dashboard-link">Dashboard</a>' : ""}
         ${session ? '<button type="button" class="nav-link-btn logout-btn" onclick="logoutUser()">Logout</button>' : ""}
         <a href="orders.html" class="nav-link-btn">Orders</a>
         <button type="button" class="cart-btn" onclick="toggleCart()">🛒 Cart <span id="cart-count" hidden>0</span></button>
@@ -50,10 +53,10 @@ function renderSiteHeader(options = {}) {
   </header>`;
 }
 
-function injectHeader(targetId, options) {
+async function injectHeader(targetId, options) {
   const target = document.getElementById(targetId || "site-header");
   if (!target) return;
-  target.innerHTML = renderSiteHeader(options);
+  target.innerHTML = await renderSiteHeader(options);
   bindAccountMenu();
   const search = document.getElementById("search");
   if (search) {
@@ -194,8 +197,8 @@ function initCartMount() {
   }
 }
 
-function initCategoryPage(categorySlug, title, emoji) {
-  injectHeader("site-header", {
+async function initCategoryPage(categorySlug, title, emoji) {
+  await injectHeader("site-header", {
     searchPlaceholder: "Search in " + title + "..."
   });
   const grid = document.getElementById("product-grid");
@@ -214,11 +217,11 @@ function initCategoryPage(categorySlug, title, emoji) {
   }
 }
 
-function initSite() {
+async function initSite() {
   const header = document.getElementById("site-header");
   if (header && !header.dataset.ready) {
     const showNav = document.body.getAttribute("data-auth") !== "login";
-    injectHeader("site-header", { showCategoryNav: showNav });
+    await injectHeader("site-header", { showCategoryNav: showNav });
     header.dataset.ready = "1";
   }
   initCartMount();
@@ -247,7 +250,7 @@ function initSite() {
   bindAccountMenu();
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   if (typeof SHOP_PRODUCTS === "undefined" || typeof CATEGORY_META === "undefined") {
     console.error("ShopVerse: products.js failed to load. Check script paths.");
     return;
@@ -256,10 +259,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const cat = document.body.dataset.category;
   if (cat) {
     const meta = CATEGORY_META.find((c) => c.slug === cat);
-    initCategoryPage(cat, meta?.label || cat, document.body.dataset.emoji || "");
+    await initCategoryPage(cat, meta?.label || cat, document.body.dataset.emoji || "");
     bindAccountMenu();
     return;
   }
 
-  initSite();
+  await initSite();
 });

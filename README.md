@@ -63,6 +63,43 @@ Then open `http://localhost:3000`.
 
 GitHub Pages cannot run Node.js or MySQL. Keep GitHub Pages for the HTML/CSS/JS frontend, and deploy `server.js` to a Node host such as Render, Railway, or VPS hosting with MySQL.
 
+## Render Backend Setup
+
+Render does not provide a local MySQL server at `localhost`. Create an online MySQL database first, then add these Environment Variables in your Render Web Service:
+
+```env
+MYSQL_HOST=your-online-mysql-host
+MYSQL_PORT=3306
+MYSQL_USER=your-online-mysql-user
+MYSQL_PASSWORD=your-online-mysql-password
+MYSQL_DATABASE=shopverse
+SESSION_SECRET=use-a-long-random-secret
+CORS_ORIGIN=https://your-github-username.github.io,https://your-render-service.onrender.com
+NODE_ENV=production
+MYSQL_SSL=false
+MYSQL_SSL_REJECT_UNAUTHORIZED=false
+```
+
+If your MySQL provider requires SSL, set:
+
+```env
+MYSQL_SSL=true
+MYSQL_SSL_REJECT_UNAUTHORIZED=false
+```
+
+Render commands:
+
+```bash
+Build Command: npm install
+Start Command: npm start
+```
+
+The backend now starts even if MySQL is temporarily unavailable. Check database status at:
+
+```text
+https://your-render-service.onrender.com/api/health
+```
+
 After deploying the backend, update `api-config.js`:
 
 ```js

@@ -1,7 +1,6 @@
 require("dotenv").config();
 
 const crypto = require("crypto");
-const path = require("path");
 const cors = require("cors");
 const express = require("express");
 const mysql = require("mysql2/promise");
@@ -9,8 +8,9 @@ const mysql = require("mysql2/promise");
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const sessionSecret = process.env.SESSION_SECRET || "shopverse-dev-secret";
+const dbRetryMs = Number(process.env.DB_RETRY_MS || 15000);
 
-const db = mysql.createPool({
+const dbConfig = {
   host: process.env.MYSQL_HOST || "localhost",
   port: Number(process.env.MYSQL_PORT || 3306),
   user: process.env.MYSQL_USER || "root",
@@ -18,17 +18,60 @@ const db = mysql.createPool({
   database: process.env.MYSQL_DATABASE || "shopverse",
   waitForConnections: true,
   connectionLimit: 10
-});
+};
+
+if (process.env.MYSQL_SSL === "true") {
+  dbConfig.ssl = {
+    rejectUnauthorized: process.env.MYSQL_SSL_REJECT_UNAUTHORIZED === "true"
+  };
+}
+
+const db = mysql.createPool(dbConfig);
+let dbReady = false;
+let dbLastError = null;
+let dbInitInProgress = false;
 
 app.use(express.json({ limit: "1mb" }));
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : true,
+    origin: process.env.CORS_ORIGIN
+      ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim())
+      : true,
     credentials: true
   })
 );
 
 app.use(express.static(__dirname));
+
+app.get("/api/health", (req, res) => {
+  res.json({
+    ok: true,
+    database: dbReady ? "ready" : "not_ready",
+    error: dbReady || !dbLastError ? null : dbLastError
+  });
+});
+
+function asyncRoute(handler) {
+  return async (req, res, next) => {
+    try {
+      await handler(req, res, next);
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+
+function requireDb(req, res, next) {
+  if (!dbReady) {
+    res.status(503).json({
+      message:
+        "Database is not ready. Check MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD and MYSQL_DATABASE on Render."
+    });
+    return;
+  }
+
+  next();
+}
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
   const hash = crypto
@@ -159,11 +202,63 @@ async function seedDefaultUsers() {
   }
 }
 
+async function ensureTables() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(120) NOT NULL,
+      email VARCHAR(190) NOT NULL UNIQUE,
+      password_hash VARCHAR(255) NOT NULL,
+      role ENUM('user', 'admin') NOT NULL DEFAULT 'user',
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS orders (
+      id VARCHAR(40) PRIMARY KEY,
+      user_id INT NOT NULL,
+      user_email VARCHAR(190) NOT NULL,
+      user_name VARCHAR(120) NOT NULL,
+      items_json JSON NOT NULL,
+      address_json JSON NOT NULL,
+      payment VARCHAR(40) NOT NULL,
+      bill_json JSON NULL,
+      total DECIMAL(12, 2) NOT NULL,
+      status VARCHAR(30) NOT NULL DEFAULT 'placed',
+      cancelled_at DATETIME NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+}
+
+async function initializeDatabase() {
+  if (dbInitInProgress) return;
+
+  dbInitInProgress = true;
+
+  try {
+    await db.query("SELECT 1");
+    await ensureTables();
+    await seedDefaultUsers();
+    dbReady = true;
+    dbLastError = null;
+    console.log("MySQL connected and initialized.");
+  } catch (err) {
+    dbReady = false;
+    dbLastError = err.message;
+    console.error("MySQL is not ready yet:", err.message);
+  } finally {
+    dbInitInProgress = false;
+  }
+}
+
 app.get("/api/auth/session", (req, res) => {
   res.json({ user: getSession(req) });
 });
 
-app.post("/api/auth/register", async (req, res) => {
+app.post("/api/auth/register", requireDb, asyncRoute(async (req, res) => {
   const { name, email, password } = req.body;
 
   if (!name || !email || !password || password.length < 6) {
@@ -191,9 +286,9 @@ app.post("/api/auth/register", async (req, res) => {
     }
     res.status(500).json({ message: "Could not register user" });
   }
-});
+}));
 
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", requireDb, asyncRoute(async (req, res) => {
   const { email, password, expectedRole } = req.body;
   const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [
     String(email || "").trim().toLowerCase()
@@ -214,14 +309,14 @@ app.post("/api/auth/login", async (req, res) => {
 
   setSessionCookie(res, user);
   res.json({ user: publicUser(user) });
-});
+}));
 
 app.post("/api/auth/logout", (req, res) => {
   clearSessionCookie(res);
   res.json({ ok: true });
 });
 
-app.post("/api/auth/change-password", requireUser, async (req, res) => {
+app.post("/api/auth/change-password", requireDb, requireUser, asyncRoute(async (req, res) => {
   const { currentPassword, newPassword } = req.body;
 
   if (!newPassword || newPassword.length < 6) {
@@ -242,29 +337,29 @@ app.post("/api/auth/change-password", requireUser, async (req, res) => {
     req.user.id
   ]);
   res.json({ message: "Password changed successfully" });
-});
+}));
 
-app.get("/api/admin/users", requireAdmin, async (req, res) => {
+app.get("/api/admin/users", requireDb, requireAdmin, asyncRoute(async (req, res) => {
   const [rows] = await db.query(
     "SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC"
   );
   res.json({ users: rows });
-});
+}));
 
-app.get("/api/admin/orders", requireAdmin, async (req, res) => {
+app.get("/api/admin/orders", requireDb, requireAdmin, asyncRoute(async (req, res) => {
   const [rows] = await db.query("SELECT * FROM orders ORDER BY created_at DESC");
   res.json({ orders: rows.map(mapOrder) });
-});
+}));
 
-app.get("/api/orders", requireUser, async (req, res) => {
+app.get("/api/orders", requireDb, requireUser, asyncRoute(async (req, res) => {
   const [rows] = await db.query(
     "SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC",
     [req.user.id]
   );
   res.json({ orders: rows.map(mapOrder) });
-});
+}));
 
-app.post("/api/orders", requireUser, async (req, res) => {
+app.post("/api/orders", requireDb, requireUser, asyncRoute(async (req, res) => {
   const order = req.body;
   const id = "SV" + Date.now().toString(36).toUpperCase();
 
@@ -286,9 +381,9 @@ app.post("/api/orders", requireUser, async (req, res) => {
   );
 
   res.status(201).json({ id });
-});
+}));
 
-app.post("/api/orders/:id/cancel", requireUser, async (req, res) => {
+app.post("/api/orders/:id/cancel", requireDb, requireUser, asyncRoute(async (req, res) => {
   const [result] = await db.query(
     `UPDATE orders
      SET status = 'cancelled', cancelled_at = NOW()
@@ -302,7 +397,7 @@ app.post("/api/orders/:id/cancel", requireUser, async (req, res) => {
   }
 
   res.json({ ok: true });
-});
+}));
 
 function mapOrder(row) {
   return {
@@ -321,14 +416,31 @@ function mapOrder(row) {
   };
 }
 
-seedDefaultUsers()
-  .then(() => {
-    app.listen(port, () => {
-      console.log(`ShopVerse running on ${port}`);
-    });
-  })
-  .catch((err) => {
-    console.error("Could not connect to MySQL. Check .env and database.sql.");
-    console.error(err);
-    process.exit(1);
-  });
+app.use((err, req, res, next) => {
+  console.error(err);
+  const dbErrorCodes = new Set([
+    "PROTOCOL_CONNECTION_LOST",
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "ENOTFOUND",
+    "EAI_AGAIN",
+    "ECONNRESET"
+  ]);
+
+  if (dbErrorCodes.has(err.code)) {
+    dbReady = false;
+    dbLastError = err.message;
+    res.status(503).json({ message: "Database connection failed. Retrying shortly." });
+    return;
+  }
+
+  res.status(500).json({ message: "Server error" });
+});
+
+app.listen(port, () => {
+  console.log(`ShopVerse running on ${port}`);
+  initializeDatabase();
+  setInterval(() => {
+    if (!dbReady) initializeDatabase();
+  }, dbRetryMs);
+});

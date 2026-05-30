@@ -31,7 +31,13 @@ function saveUsers(users) {
 
 function getSession() {
   try {
-    return JSON.parse(localStorage.getItem(SESSION_KEY));
+    const s = JSON.parse(localStorage.getItem(SESSION_KEY));
+    if (!s || !s.email) return null;
+    return {
+      email: s.email,
+      name: s.name || "User",
+      role: s.role || "user"
+    };
   } catch {
     return null;
   }

@@ -190,15 +190,8 @@ function getCartPanelHtml() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  updateCartBadge();
-  renderCartPanel();
-  const overlay = document.getElementById("cart-overlay");
-  if (overlay) overlay.addEventListener("click", closeCart);
-
-  const params = new URLSearchParams(window.location.search);
-  const q = params.get("q");
-  if (q && document.getElementById("search")) {
-    document.getElementById("search").value = q;
-    searchItems();
+  if (document.getElementById("cart-items")) {
+    updateCartBadge();
+    renderCartPanel();
   }
 });

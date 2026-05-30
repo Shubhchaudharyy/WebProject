@@ -36,7 +36,6 @@ Open `index.html` in your browser, or deploy with [GitHub Pages](https://pages.g
 
 ```
 index.html          Homepage
-about.html          About Us
 login.html          Login / Register
 checkout.html       Checkout & billing
 orders.html         Your orders

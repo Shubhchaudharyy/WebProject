@@ -4,9 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login – ShopVerse</title>
+  <script src="paths.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
-<body class="auth-page">
+<body class="auth-page" data-auth="login">
 
 <div id="site-header"></div>
 
@@ -112,7 +113,6 @@
     window.location.href = redirect;
   });
 
-  injectHeader("site-header", { showCategoryNav: false });
   setTab(activeRole);
   if (getSession()) {
     const s = getSession();

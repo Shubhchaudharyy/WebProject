@@ -14,7 +14,7 @@ function renderSiteHeader(options = {}) {
   if (session) {
     accountHtml = `
       <div class="account-menu">
-        <button type="button" class="nav-link-btn account-trigger">Hello, ${escapeHtml(session.name.split(" ")[0])} ▾</button>
+        <button type="button" class="nav-link-btn account-trigger">Hello, ${escapeHtml((session.name || "User").split(" ")[0])} ▾</button>
         <div class="account-dropdown">
           <span class="dropdown-email">${escapeHtml(session.email)}</span>
           <a href="orders.html">Your Orders</a>
@@ -179,6 +179,21 @@ function initCarousel() {
   setInterval(() => go(idx + 1), 5000);
 }
 
+function initCartMount() {
+  const mount = document.getElementById("cart-mount");
+  if (!mount || mount.dataset.ready === "1") return;
+  if (typeof getCartPanelHtml !== "function") return;
+  mount.innerHTML = getCartPanelHtml();
+  mount.dataset.ready = "1";
+  if (typeof updateCartBadge === "function") updateCartBadge();
+  if (typeof renderCartPanel === "function") renderCartPanel();
+  const overlay = document.getElementById("cart-overlay");
+  if (overlay && !overlay.dataset.bound) {
+    overlay.dataset.bound = "1";
+    overlay.addEventListener("click", closeCart);
+  }
+}
+
 function initCategoryPage(categorySlug, title, emoji) {
   injectHeader("site-header", {
     searchPlaceholder: "Search in " + title + "..."
@@ -190,12 +205,7 @@ function initCategoryPage(categorySlug, title, emoji) {
   }
   const heading = document.getElementById("cat-title");
   if (heading) heading.textContent = (emoji || "") + " " + title + " Collection";
-  const mount = document.getElementById("cart-mount");
-  if (mount && typeof getCartPanelHtml === "function") {
-    mount.innerHTML = getCartPanelHtml();
-    updateCartBadge();
-    renderCartPanel();
-  }
+  initCartMount();
   const params = new URLSearchParams(location.search);
   const q = params.get("q");
   if (q && document.getElementById("search")) {
@@ -204,12 +214,15 @@ function initCategoryPage(categorySlug, title, emoji) {
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  const cat = document.body.dataset.category;
-  if (cat) {
-    const meta = CATEGORY_META.find((c) => c.slug === cat);
-    initCategoryPage(cat, meta?.label || cat, document.body.dataset.emoji || "");
+function initSite() {
+  const header = document.getElementById("site-header");
+  if (header && !header.dataset.ready) {
+    const showNav = document.body.getAttribute("data-auth") !== "login";
+    injectHeader("site-header", { showCategoryNav: showNav });
+    header.dataset.ready = "1";
   }
+  initCartMount();
+
   if (document.body.dataset.page === "home") {
     renderHomeSections();
     initCarousel();
@@ -223,6 +236,30 @@ document.addEventListener("DOMContentLoaded", () => {
         </a>`
       ).join("");
     }
+    const params = new URLSearchParams(location.search);
+    const q = params.get("q");
+    if (q && document.getElementById("search")) {
+      document.getElementById("search").value = q;
+      searchItems();
+    }
   }
+
   bindAccountMenu();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (typeof SHOP_PRODUCTS === "undefined" || typeof CATEGORY_META === "undefined") {
+    console.error("ShopVerse: products.js failed to load. Check script paths.");
+    return;
+  }
+
+  const cat = document.body.dataset.category;
+  if (cat) {
+    const meta = CATEGORY_META.find((c) => c.slug === cat);
+    initCategoryPage(cat, meta?.label || cat, document.body.dataset.emoji || "");
+    bindAccountMenu();
+    return;
+  }
+
+  initSite();
 });

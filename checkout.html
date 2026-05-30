@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Checkout – ShopVerse</title>
+  <script src="paths.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="checkout-page">
@@ -43,16 +44,16 @@
   </aside>
 </main>
 
+<div id="cart-mount"></div>
+
 <script src="products.js"></script>
 <script src="auth.js"></script>
 <script src="billing.js"></script>
 <script src="script.js"></script>
 <script src="ui.js"></script>
 <script>
-  if (!requireLogin("checkout.html")) throw new Error("redirect");
-
-  injectHeader("site-header");
-  document.getElementById("site-footer")?.remove();
+document.addEventListener("DOMContentLoaded", function () {
+  if (!requireLogin("checkout.html")) return;
 
   let useCoins = true;
 
@@ -124,8 +125,7 @@
     clearCart();
     window.location.href = "orders.html?placed=" + orderId;
   });
+});
 </script>
-<div id="cart-mount"></div>
-<script>document.getElementById("cart-mount").innerHTML = getCartPanelHtml(); updateCartBadge();</script>
 </body>
 </html>

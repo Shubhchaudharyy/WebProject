@@ -78,6 +78,7 @@ CORS_ORIGIN=https://your-github-username.github.io,https://your-render-service.o
 NODE_ENV=production
 MYSQL_SSL=false
 MYSQL_SSL_REJECT_UNAUTHORIZED=false
+MYSQL_CONNECT_TIMEOUT_MS=10000
 ```
 
 If your MySQL provider requires SSL, set:
@@ -99,6 +100,17 @@ The backend now starts even if MySQL is temporarily unavailable. Check database 
 ```text
 https://your-render-service.onrender.com/api/health
 ```
+
+If Render still shows "Application exited early", open the Render logs and look for:
+
+```text
+Startup config
+ShopVerse running on port ...
+Checking MySQL connection...
+MySQL is not ready yet
+```
+
+If you do not see `ShopVerse running on port ...`, the crash is before database login. Check that the Start Command is exactly `npm start` and that the service root points to this project folder.
 
 After deploying the backend, update `api-config.js`:
 

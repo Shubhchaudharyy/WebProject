@@ -1,35 +1,98 @@
-require("dotenv").config();
-
-const crypto = require("crypto");
-const cors = require("cors");
-const express = require("express");
-const mysql = require("mysql2/promise");
-
-const app = express();
-const port = Number(process.env.PORT || 3000);
-const sessionSecret = process.env.SESSION_SECRET || "shopverse-dev-secret";
-const dbRetryMs = Number(process.env.DB_RETRY_MS || 15000);
-
-const dbConfig = {
-  host: process.env.MYSQL_HOST || "localhost",
-  port: Number(process.env.MYSQL_PORT || 3306),
-  user: process.env.MYSQL_USER || "root",
-  password: process.env.MYSQL_PASSWORD || "",
-  database: process.env.MYSQL_DATABASE || "shopverse",
-  waitForConnections: true,
-  connectionLimit: 10
-};
-
-if (process.env.MYSQL_SSL === "true") {
-  dbConfig.ssl = {
-    rejectUnauthorized: process.env.MYSQL_SSL_REJECT_UNAUTHORIZED === "true"
-  };
+try {
+  require("dotenv").config();
+} catch {
+  console.warn("dotenv is not installed; using Render environment variables only.");
 }
 
-const db = mysql.createPool(dbConfig);
+const crypto = require("crypto");
+const cors = loadRequiredPackage("cors");
+const express = loadRequiredPackage("express");
+const mysql = loadRequiredPackage("mysql2/promise");
+
+function loadRequiredPackage(name) {
+  try {
+    return require(name);
+  } catch (err) {
+    console.error(`Missing required package "${name}". Check Render Build Command and service root.`);
+    throw err;
+  }
+}
+
+const app = express();
+const port = parsePositiveInt(process.env.PORT, 3000);
+const sessionSecret = process.env.SESSION_SECRET || "shopverse-dev-secret";
+const dbRetryMs = parsePositiveInt(process.env.DB_RETRY_MS, 15000);
+
+let db = null;
 let dbReady = false;
 let dbLastError = null;
 let dbInitInProgress = false;
+
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION:", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("UNHANDLED REJECTION:", reason);
+});
+
+function parsePositiveInt(value, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function getDbConfig() {
+  const config = {
+    host: process.env.MYSQL_HOST || "localhost",
+    port: parsePositiveInt(process.env.MYSQL_PORT, 3306),
+    user: process.env.MYSQL_USER || "root",
+    password: process.env.MYSQL_PASSWORD || "",
+    database: process.env.MYSQL_DATABASE || "shopverse",
+    waitForConnections: true,
+    connectionLimit: parsePositiveInt(process.env.MYSQL_CONNECTION_LIMIT, 10),
+    connectTimeout: parsePositiveInt(process.env.MYSQL_CONNECT_TIMEOUT_MS, 10000)
+  };
+
+  if (process.env.MYSQL_SSL === "true") {
+    config.ssl = {
+      rejectUnauthorized: process.env.MYSQL_SSL_REJECT_UNAUTHORIZED === "true"
+    };
+  }
+
+  return config;
+}
+
+function getDb() {
+  if (!db) {
+    const config = getDbConfig();
+    console.log("Creating MySQL pool:", {
+      host: config.host,
+      port: config.port,
+      user: config.user,
+      database: config.database,
+      ssl: Boolean(config.ssl),
+      hasPassword: Boolean(config.password)
+    });
+    db = mysql.createPool(config);
+  }
+
+  return db;
+}
+
+function logStartupConfig() {
+  console.log("Startup config:", {
+    nodeEnv: process.env.NODE_ENV || "development",
+    port,
+    dbRetryMs,
+    mysqlHost: process.env.MYSQL_HOST || "localhost",
+    mysqlPort: parsePositiveInt(process.env.MYSQL_PORT, 3306),
+    mysqlUserSet: Boolean(process.env.MYSQL_USER),
+    mysqlPasswordSet: Boolean(process.env.MYSQL_PASSWORD),
+    mysqlDatabase: process.env.MYSQL_DATABASE || "shopverse",
+    mysqlSsl: process.env.MYSQL_SSL === "true",
+    corsOrigin: process.env.CORS_ORIGIN || "any"
+  });
+}
 
 app.use(express.json({ limit: "1mb" }));
 app.use(
@@ -47,7 +110,14 @@ app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
     database: dbReady ? "ready" : "not_ready",
-    error: dbReady || !dbLastError ? null : dbLastError
+    error: dbReady || !dbLastError ? null : dbLastError,
+    config: {
+      mysqlHostSet: Boolean(process.env.MYSQL_HOST),
+      mysqlUserSet: Boolean(process.env.MYSQL_USER),
+      mysqlPasswordSet: Boolean(process.env.MYSQL_PASSWORD),
+      mysqlDatabaseSet: Boolean(process.env.MYSQL_DATABASE),
+      corsOriginSet: Boolean(process.env.CORS_ORIGIN)
+    }
   });
 });
 
@@ -193,7 +263,7 @@ async function seedDefaultUsers() {
   ];
 
   for (const [name, email, password, role] of defaults) {
-    await db.query(
+    await getDb().query(
       `INSERT INTO users (name, email, password_hash, role)
        VALUES (?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE role = VALUES(role)`,
@@ -203,7 +273,7 @@ async function seedDefaultUsers() {
 }
 
 async function ensureTables() {
-  await db.query(`
+  await getDb().query(`
     CREATE TABLE IF NOT EXISTS users (
       id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(120) NOT NULL,
@@ -214,7 +284,7 @@ async function ensureTables() {
     )
   `);
 
-  await db.query(`
+  await getDb().query(`
     CREATE TABLE IF NOT EXISTS orders (
       id VARCHAR(40) PRIMARY KEY,
       user_id INT NOT NULL,
@@ -237,18 +307,29 @@ async function initializeDatabase() {
   if (dbInitInProgress) return;
 
   dbInitInProgress = true;
+  console.log("Checking MySQL connection...");
 
   try {
-    await db.query("SELECT 1");
+    await getDb().query("SELECT 1");
+    console.log("MySQL connection check passed.");
     await ensureTables();
+    console.log("MySQL tables are ready.");
     await seedDefaultUsers();
     dbReady = true;
     dbLastError = null;
-    console.log("MySQL connected and initialized.");
+    console.log("Default users seeded. MySQL connected and initialized.");
   } catch (err) {
     dbReady = false;
     dbLastError = err.message;
-    console.error("MySQL is not ready yet:", err.message);
+    console.error("MySQL is not ready yet:", {
+      message: err.message,
+      code: err.code,
+      errno: err.errno,
+      sqlState: err.sqlState,
+      host: process.env.MYSQL_HOST || "localhost",
+      port: parsePositiveInt(process.env.MYSQL_PORT, 3306),
+      database: process.env.MYSQL_DATABASE || "shopverse"
+    });
   } finally {
     dbInitInProgress = false;
   }
@@ -267,7 +348,7 @@ app.post("/api/auth/register", requireDb, asyncRoute(async (req, res) => {
   }
 
   try {
-    const [result] = await db.query(
+    const [result] = await getDb().query(
       "INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, 'user')",
       [name.trim(), email.trim().toLowerCase(), hashPassword(password)]
     );
@@ -290,7 +371,7 @@ app.post("/api/auth/register", requireDb, asyncRoute(async (req, res) => {
 
 app.post("/api/auth/login", requireDb, asyncRoute(async (req, res) => {
   const { email, password, expectedRole } = req.body;
-  const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [
+  const [rows] = await getDb().query("SELECT * FROM users WHERE email = ?", [
     String(email || "").trim().toLowerCase()
   ]);
   const user = rows[0];
@@ -324,7 +405,7 @@ app.post("/api/auth/change-password", requireDb, requireUser, asyncRoute(async (
     return;
   }
 
-  const [rows] = await db.query("SELECT * FROM users WHERE id = ?", [req.user.id]);
+  const [rows] = await getDb().query("SELECT * FROM users WHERE id = ?", [req.user.id]);
   const user = rows[0];
 
   if (!user || !verifyPassword(currentPassword || "", user.password_hash)) {
@@ -332,7 +413,7 @@ app.post("/api/auth/change-password", requireDb, requireUser, asyncRoute(async (
     return;
   }
 
-  await db.query("UPDATE users SET password_hash = ? WHERE id = ?", [
+  await getDb().query("UPDATE users SET password_hash = ? WHERE id = ?", [
     hashPassword(newPassword),
     req.user.id
   ]);
@@ -340,19 +421,19 @@ app.post("/api/auth/change-password", requireDb, requireUser, asyncRoute(async (
 }));
 
 app.get("/api/admin/users", requireDb, requireAdmin, asyncRoute(async (req, res) => {
-  const [rows] = await db.query(
+  const [rows] = await getDb().query(
     "SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC"
   );
   res.json({ users: rows });
 }));
 
 app.get("/api/admin/orders", requireDb, requireAdmin, asyncRoute(async (req, res) => {
-  const [rows] = await db.query("SELECT * FROM orders ORDER BY created_at DESC");
+  const [rows] = await getDb().query("SELECT * FROM orders ORDER BY created_at DESC");
   res.json({ orders: rows.map(mapOrder) });
 }));
 
 app.get("/api/orders", requireDb, requireUser, asyncRoute(async (req, res) => {
-  const [rows] = await db.query(
+  const [rows] = await getDb().query(
     "SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC",
     [req.user.id]
   );
@@ -363,7 +444,7 @@ app.post("/api/orders", requireDb, requireUser, asyncRoute(async (req, res) => {
   const order = req.body;
   const id = "SV" + Date.now().toString(36).toUpperCase();
 
-  await db.query(
+  await getDb().query(
     `INSERT INTO orders
       (id, user_id, user_email, user_name, items_json, address_json, payment, bill_json, total)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -384,7 +465,7 @@ app.post("/api/orders", requireDb, requireUser, asyncRoute(async (req, res) => {
 }));
 
 app.post("/api/orders/:id/cancel", requireDb, requireUser, asyncRoute(async (req, res) => {
-  const [result] = await db.query(
+  const [result] = await getDb().query(
     `UPDATE orders
      SET status = 'cancelled', cancelled_at = NOW()
      WHERE id = ? AND user_id = ? AND status <> 'cancelled'`,
@@ -437,10 +518,28 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: "Server error" });
 });
 
-app.listen(port, () => {
-  console.log(`ShopVerse running on ${port}`);
-  initializeDatabase();
-  setInterval(() => {
-    if (!dbReady) initializeDatabase();
-  }, dbRetryMs);
-});
+function startServer() {
+  try {
+    logStartupConfig();
+
+    const server = app.listen(port, "0.0.0.0", () => {
+      console.log(`ShopVerse running on port ${port}`);
+      initializeDatabase();
+      setInterval(() => {
+        if (!dbReady) initializeDatabase();
+      }, dbRetryMs);
+    });
+
+    server.on("error", (err) => {
+      console.error("HTTP server failed to start:", {
+        message: err.message,
+        code: err.code,
+        port
+      });
+    });
+  } catch (err) {
+    console.error("Startup failed before app.listen completed:", err);
+  }
+}
+
+startServer();
